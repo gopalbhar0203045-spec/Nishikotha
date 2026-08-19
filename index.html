@@ -7538,13 +7538,30 @@ document.getElementById('noteAdminToggleBtn').addEventListener('click', async ()
     updateNoteAdminUI();
     return;
   }
-  const entered = prompt("অ্যাডমিন পাসওয়ার্ড দাও:");
+  const entered = prompt("অ্যাডমিন পাসওয়ার্ড দাও:\n(পাসওয়ার্ড ভুলে গেলে \"reset\" লিখে OK করো — রিসেট লিংক ইমেইলে যাবে)");
   if(entered === null) return;
+  if(entered.trim().toLowerCase() === 'reset'){
+    try{
+      await noteFirebaseAuth.sendPasswordResetEmail(NOTE_ADMIN_EMAIL);
+      alert("পাসওয়ার্ড রিসেট লিংক পাঠানো হয়েছে: " + NOTE_ADMIN_EMAIL + "\nইমেইল চেক করো (Spam ফোল্ডারও দেখো)।");
+    }catch(e){
+      alert("রিসেট ইমেইল পাঠাতে ব্যর্থ হয়েছে: " + (e && e.message ? e.message : e));
+    }
+    return;
+  }
   try{
     await noteFirebaseAuth.signInWithEmailAndPassword(NOTE_ADMIN_EMAIL, entered);
     updateNoteAdminUI();
   }catch(e){
-    alert("পাসওয়ার্ড ভুল হয়েছে অথবা লগইন ব্যর্থ হয়েছে।");
+    const wantsReset = confirm("পাসওয়ার্ড ভুল হয়েছে অথবা লগইন ব্যর্থ হয়েছে।\n\nপাসওয়ার্ড রিসেট লিংক ইমেইলে পাঠাতে চাও?");
+    if(wantsReset){
+      try{
+        await noteFirebaseAuth.sendPasswordResetEmail(NOTE_ADMIN_EMAIL);
+        alert("পাসওয়ার্ড রিসেট লিংক পাঠানো হয়েছে: " + NOTE_ADMIN_EMAIL + "\nইমেইল চেক করো (Spam ফোল্ডারও দেখো)।");
+      }catch(e2){
+        alert("রিসেট ইমেইল পাঠাতে ব্যর্থ হয়েছে: " + (e2 && e2.message ? e2.message : e2));
+      }
+    }
   }
 });
 
