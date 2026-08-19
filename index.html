@@ -949,6 +949,8 @@
     .search-results-panel{ left:14px; right:14px; }
   }
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -1036,7 +1038,10 @@
     <p class="lede">নিজের ডিভাইস থেকে যেকোনো সাইজের পিডিএফ নোট আপলোড করো — সাইজ নিয়ে চিন্তা নেই, বড় ফাইলও এখানে সংরক্ষণ করার আলাদা ব্যবস্থা আছে। আপলোড করা প্রতিটি পিডিএফ এই ওয়েবসাইটেই সরাসরি খুলে পড়া যাবে, আলাদা করে ডাউনলোড করার দরকার নেই।</p>
   </section>
   <main style="max-width:1100px;margin:0 auto;padding:10px 20px 80px;">
-    <div class="video-form-box">
+    <div style="text-align:right; margin-bottom:10px;">
+      <button type="button" class="btn" id="noteAdminToggleBtn" style="font-size:12.5px; padding:6px 12px; opacity:0.6;">🔒 অ্যাডমিন</button>
+    </div>
+    <div class="video-form-box" id="noteAdminBox" style="display:none;">
       <h3>নতুন পিডিএফ নোট যোগ করো</h3>
       <div class="video-storage-notice" id="noteStorageNotice" style="display:none;">
         ⚠️ এই ব্রাউজিং পরিবেশে স্থায়ী স্টোরেজ (IndexedDB) ব্লক করা আছে, তাই যোগ করা পিডিএফ শুধু এই সেশনের জন্য দেখা যাবে — পেজ রিলোড বা বন্ধ করলে হারিয়ে যাবে। সাধারণ ব্রাউজারে (Chrome/Firefox) সরাসরি ফাইলটি খুলে ব্যবহার করলে পিডিএফ স্থায়ীভাবে সংরক্ষিত থাকবে।
@@ -7473,6 +7478,76 @@ document.addEventListener('keydown', (e)=>{
   if(e.key === 'Escape' && document.getElementById('pdfModalOverlay').classList.contains('open')) closeNoteViewer();
 });
 
+/* ---- Admin-only gate for the "add PDF note" form, backed by Firebase
+   Authentication. The password is verified by Firebase's servers, not
+   by code sitting in this file — so unlike a plain JS password check,
+   it can't be read out of the page source.
+
+   SETUP (one-time, see the README section at the very bottom of this
+   file for full steps):
+   1. Create a free Firebase project at https://console.firebase.google.com
+   2. Enable "Email/Password" sign-in under Authentication.
+   3. Add one user under Authentication > Users — that's your admin
+      login (use any email, e.g. admin@yoursite.com, and your own
+      password — do NOT reuse a password you've typed anywhere else).
+   4. Copy your project's Firebase config into NOTE_FIREBASE_CONFIG
+      below, and put that same admin email into NOTE_ADMIN_EMAIL. ---- */
+const NOTE_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCM2wocDIUssHACjepuRSFv6LiTl4dAz0g",
+  authDomain: "nishikotha-2026.firebaseapp.com",
+  projectId: "nishikotha-2026"
+};
+const NOTE_ADMIN_EMAIL = "gopalbhar0203045@gmail.com";
+
+let noteFirebaseAuth = null;
+let noteFirebaseReady = false;
+try{
+  if(typeof firebase !== 'undefined' && NOTE_FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY'){
+    firebase.initializeApp(NOTE_FIREBASE_CONFIG);
+    noteFirebaseAuth = firebase.auth();
+    noteFirebaseReady = true;
+  }
+}catch(e){ console.warn('Firebase init failed:', e); }
+
+function isNoteAdminUnlocked(){
+  return !!(noteFirebaseAuth && noteFirebaseAuth.currentUser);
+}
+function updateNoteAdminUI(){
+  const box = document.getElementById('noteAdminBox');
+  const btn = document.getElementById('noteAdminToggleBtn');
+  if(!box || !btn) return;
+  if(!noteFirebaseReady){
+    btn.textContent = '🔒 অ্যাডমিন (সেটআপ বাকি)';
+    box.style.display = 'none';
+    return;
+  }
+  const unlocked = isNoteAdminUnlocked();
+  box.style.display = unlocked ? '' : 'none';
+  btn.textContent = unlocked ? '🔓 অ্যাডমিন মোড (লক করো)' : '🔒 অ্যাডমিন';
+}
+if(noteFirebaseAuth){
+  noteFirebaseAuth.onAuthStateChanged(()=>{ updateNoteAdminUI(); });
+}
+document.getElementById('noteAdminToggleBtn').addEventListener('click', async ()=>{
+  if(!noteFirebaseReady){
+    alert("অ্যাডমিন লগইন এখনো সেটআপ করা হয়নি। ফাইলের শুরুতে NOTE_FIREBASE_CONFIG ও NOTE_ADMIN_EMAIL পূরণ করো।");
+    return;
+  }
+  if(isNoteAdminUnlocked()){
+    await noteFirebaseAuth.signOut();
+    updateNoteAdminUI();
+    return;
+  }
+  const entered = prompt("অ্যাডমিন পাসওয়ার্ড দাও:");
+  if(entered === null) return;
+  try{
+    await noteFirebaseAuth.signInWithEmailAndPassword(NOTE_ADMIN_EMAIL, entered);
+    updateNoteAdminUI();
+  }catch(e){
+    alert("পাসওয়ার্ড ভুল হয়েছে অথবা লগইন ব্যর্থ হয়েছে।");
+  }
+});
+
 function renderNotesView(){
   const catSelect = document.getElementById('noteCategory');
   if(catSelect && !catSelect.dataset.filled){
@@ -7483,6 +7558,7 @@ function renderNotesView(){
   renderNotesGrid();
   const notice = document.getElementById('noteStorageNotice');
   if(notice) notice.style.display = (storageBlocked || noteIdbBlocked) ? 'block' : 'none';
+  updateNoteAdminUI();
 }
 
 document.getElementById('noteFile').addEventListener('change', (e)=>{
@@ -7874,5 +7950,46 @@ if('serviceWorker' in navigator){
 }
 
 </script>
+
+<!--
+========================================================================
+অ্যাডমিন লগইন সেটআপ (একবার করলেই হবে) — Firebase Authentication
+========================================================================
+
+১. https://console.firebase.google.com -এ যাও, Google অ্যাকাউন্ট দিয়ে লগইন
+   করো, "Add project" চেপে একটা নতুন প্রজেক্ট বানাও (নাম যা খুশি,
+   Google Analytics লাগবে না, "না" বেছে নিতে পারো)।
+
+২. প্রজেক্ট খোলার পর বাঁ পাশের মেনু থেকে Build > Authentication এ যাও,
+   "Get started" চাপো, তারপর "Sign-in method" ট্যাবে "Email/Password"
+   অপশনটা চালু (Enable) করো।
+
+৩. "Users" ট্যাবে গিয়ে "Add user" চেপে একটা এডমিন লগইন বানাও —
+   ইমেইল যেকোনো একটা (যেমন admin@nishikotha.com) আর পাসওয়ার্ড হিসেবে
+   এমন একটা পাসওয়ার্ড দাও যেটা তুমি আর কোথাও ব্যবহার করোনি।
+
+৪. প্রজেক্টের সেটিংসে (⚙️ আইকন > Project settings) নিচের দিকে
+   "Your apps" সেকশনে "</> " (Web) আইকনে ক্লিক করে একটা ওয়েব অ্যাপ
+   যোগ করো। এখানে firebaseConfig নামের একটা অবজেক্ট দেখাবে —
+   সেখান থেকে apiKey, authDomain, আর projectId তিনটে মান কপি করো।
+   (এই মানগুলো গোপনীয় নয়, পাবলিক আইডেন্টিফায়ার — এগুলো কোডে থাকলে
+   কোনো সমস্যা নেই; আসল নিরাপত্তা তোমার পাসওয়ার্ডে, যেটা Firebase-এর
+   সার্ভারে যাচাই হয়।)
+
+৫. এই HTML ফাইলে (Ctrl+F দিয়ে) "NOTE_FIREBASE_CONFIG" খুঁজে বের করো,
+   ওখানে YOUR_API_KEY আর YOUR_PROJECT_ID -এর জায়গায় নিজের মানগুলো
+   বসাও। ঠিক নিচেই "NOTE_ADMIN_EMAIL" -এ ধাপ ৩-এ যে ইমেইল দিয়েছিলে
+   সেটা বসাও।
+
+৬. ফাইলটা সেভ করে হোস্ট করা সাইটে আপলোড করো। এখন থেকে "🔒 অ্যাডমিন"
+   বাটনে ক্লিক করলে পাসওয়ার্ড চাইবে, আর সেই পাসওয়ার্ড Firebase-এর
+   সার্ভারে গিয়ে যাচাই হবে — কোডের মধ্যে কোথাও পাসওয়ার্ড লেখা থাকবে
+   না।
+
+সেটআপ শেষ না করা পর্যন্ত বাটনে "🔒 অ্যাডমিন (সেটআপ বাকি)" লেখা
+দেখাবে এবং ফর্ম কারো জন্যই খুলবে না।
+========================================================================
+-->
+
 </body>
 </html>
