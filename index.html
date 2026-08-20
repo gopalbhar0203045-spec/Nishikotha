@@ -1044,7 +1044,7 @@
     <div class="video-form-box" id="noteAdminBox" style="display:none;">
       <h3>নতুন পিডিএফ নোট যোগ করো</h3>
       <div class="video-storage-notice" id="noteStorageNotice" style="display:none;">
-        ⚠️ এই ব্রাউজিং পরিবেশে স্থায়ী স্টোরেজ (IndexedDB) ব্লক করা আছে, তাই যোগ করা পিডিএফ শুধু এই সেশনের জন্য দেখা যাবে — পেজ রিলোড বা বন্ধ করলে হারিয়ে যাবে। সাধারণ ব্রাউজারে (Chrome/Firefox) সরাসরি ফাইলটি খুলে ব্যবহার করলে পিডিএফ স্থায়ীভাবে সংরক্ষিত থাকবে।
+        ⚠️ GitHub থেকে নোটের তালিকা লোড করা যায়নি (নেটওয়ার্ক সমস্যা হতে পারে)। পেজ রিলোড করে আবার চেষ্টা করো।
       </div>
       <form id="addNoteForm">
         <div class="video-form-row">
@@ -1111,10 +1111,13 @@
     <p class="lede">এটি সম্পূর্ণ আলাদা একটি সেকশন — এখানে ইউটিউব, ভিমিও, ফেসবুক, ডেইলিমোশন লিংক অথবা নিজের ডিভাইস থেকে সরাসরি ভিডিও ফাইল আপলোড করে, ওয়েবসাইটেই দেখা যাবে। প্ল্যাটফর্মের ভিডিও হলে চাইলে সরাসরি সেই প্ল্যাটফর্মেও গিয়ে দেখা যাবে।</p>
   </section>
   <main style="max-width:1100px;margin:0 auto;padding:10px 20px 80px;">
-    <div class="video-form-box">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
+      <button type="button" class="btn" id="vidAdminToggleBtn" style="font-size:12.5px; padding:6px 12px; opacity:0.6;">🔒 অ্যাডমিন</button>
+    </div>
+    <div class="video-form-box" id="videoAdminBox" style="display:none;">
       <h3>নতুন ভিডিও যোগ করো</h3>
       <div class="video-storage-notice" id="vidStorageNotice" style="display:none;">
-        ⚠️ এই ব্রাউজিং পরিবেশে স্থায়ী স্টোরেজ (localStorage/IndexedDB) ব্লক করা আছে, তাই যোগ করা ভিডিও শুধু এই সেশনের জন্য দেখা যাবে — পেজ রিলোড বা বন্ধ করলে হারিয়ে যাবে। সাধারণ ব্রাউজারে (Chrome/Firefox) সরাসরি ফাইলটি খুলে ব্যবহার করলে ভিডিও স্থায়ীভাবে সংরক্ষিত থাকবে।
+        ⚠️ GitHub থেকে ভিডিওর তালিকা লোড করা যায়নি (নেটওয়ার্ক সমস্যা হতে পারে)। পেজ রিলোড করে আবার চেষ্টা করো।
       </div>
       <div class="video-source-toggle" id="vidSourceToggle">
         <button type="button" class="video-src-btn on" data-src="link">🔗 লিংক দিয়ে (ইউটিউব/ভিমিও/ফেসবুক ইত্যাদি)</button>
@@ -6802,32 +6805,136 @@ const VIDEO_CATEGORIES = [
 let videoActiveFilter = "all";
 let videoCurrentSource = "link"; // "link" or "file"
 
-/* ---- Storage availability check + in-memory fallback ----
-   Some environments (e.g. sandboxed preview frames) block localStorage
-   and IndexedDB entirely — accessing them throws a SecurityError. When
-   that happens we silently fall back to an in-memory store so adding
-   and viewing videos still works for the current session, instead of
-   the "add" button doing nothing. Persistent storage is used whenever
-   it's actually available. */
-let storageBlocked = false;
-try{
-  const t = '__nishikotha_test__';
-  localStorage.setItem(t, '1');
-  localStorage.removeItem(t);
-}catch(e){ storageBlocked = true; }
+/* ============================================================
+   GITHUB-ব্যাকড শেয়ার্ড স্টোরেজ (সব ভিসিটরের জন্য একই কনটেন্ট)
+   ------------------------------------------------------------
+   ভিডিও/নোট মেটাডেটা repo-র data/videos.json ও data/notes.json এ
+   থাকে, আর আপলোড করা আসল ফাইল (ভিডিও/PDF) repo-র files/ ফোল্ডারে —
+   দুটোই GitHub REST Contents API দিয়ে সরাসরি অ্যাডমিন প্যানেল থেকে
+   commit হয়। অ্যাডমিন প্রতিবার একটা GitHub Personal Access Token
+   (repo-তে write অনুমতিসহ) দেয় — এটা কোথাও সেভ থাকে না, কোডেও লেখা
+   নেই। সব ভিসিটর raw.githubusercontent.com থেকে read-only ভাবে পড়ে,
+   তাই কোনো টোকেন ছাড়াই সবাই একই কনটেন্ট দেখতে পায়। ---- */
+const GH_OWNER  = "gopalbhar0203045-spec";
+const GH_REPO   = "Nishikotha";
+const GH_BRANCH = "main";
+const GH_API    = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents`;
+const GH_RAW    = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}`;
 
-let memoryVideos = [];
+function ghRawUrl(path){
+  return `${GH_RAW}/${path}?t=${Date.now()}`; // cache-bust, যাতে সবাই সবসময় লেটেস্ট কনটেন্ট পায়
+}
+function utf8ToBase64(str){
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function fileToBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=> resolve(String(reader.result).split(',')[1]);
+    reader.onerror = ()=> reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+function askGithubToken(){
+  const t = prompt(
+    "GitHub Personal Access Token দাও (repo-তে write অনুমতিসহ):\n" +
+    "Settings → Developer settings → Personal access tokens থেকে বানানো যায়।\n" +
+    "এটা কোথাও সেভ থাকে না — প্রতিবার নতুন করে দিতে হবে।"
+  );
+  return (t || '').trim() || null;
+}
+async function ghApiRequest(pathAndQuery, options){
+  const res = await fetch(`${GH_API}/${pathAndQuery}`, options);
+  if(!res.ok){
+    let bodyMsg = '';
+    try{ const j = await res.json(); bodyMsg = j.message || ''; }catch(e){}
+    const err = new Error(`GitHub-এ সমস্যা (${res.status}): ${bodyMsg || 'অজানা কারণ'}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+async function ghGetSha(filePath, token){
+  try{
+    const data = await ghApiRequest(`${encodeURI(filePath)}?ref=${GH_BRANCH}`, {
+      headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github+json' }
+    });
+    return data.sha;
+  }catch(e){
+    if(e.status === 404) return null;
+    throw e;
+  }
+}
+async function ghPutFile(filePath, base64Content, message, token, sha){
+  const body = { message, content: base64Content, branch: GH_BRANCH };
+  if(sha) body.sha = sha;
+  return ghApiRequest(encodeURI(filePath), {
+    method: 'PUT',
+    headers: {
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+}
+async function ghDeleteFile(filePath, message, token, sha){
+  return ghApiRequest(encodeURI(filePath), {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ message, sha, branch: GH_BRANCH })
+  });
+}
+// পাবলিক manifest পড়া — টোকেন লাগে না, প্রতিটি ভিসিটরের জন্য কাজ করে
+async function ghReadManifest(path){
+  try{
+    const res = await fetch(ghRawUrl(path), { cache: 'no-store' });
+    if(!res.ok){
+      if(res.status === 404) return [];
+      throw new Error('manifest fetch failed: ' + res.status);
+    }
+    const text = await res.text();
+    return text.trim() ? JSON.parse(text) : [];
+  }catch(e){
+    console.warn('Manifest fetch failed for', path, e);
+    return null; // null = ফেচ ব্যর্থ (নেটওয়ার্ক); [] = খালি কিন্তু ফেচ সফল
+  }
+}
+// manifest আপডেট করে commit করে — এডমিন-অনলি, টোকেন লাগবে
+async function ghWriteManifest(path, list, message, token){
+  const sha = await ghGetSha(path, token);
+  const content = utf8ToBase64(JSON.stringify(list, null, 2));
+  await ghPutFile(path, content, message, token, sha);
+}
+// একটা ফাইল (ভিডিও/PDF) আপলোড করে স্থায়ী raw URL রিটার্ন করে
+async function ghUploadFile(repoPath, file, message, token){
+  const GH_MAX_BYTES = 95 * 1024 * 1024; // GitHub Contents API-র বাস্তবিক সীমার কাছাকাছি, নিরাপদ মার্জিনসহ
+  if(file.size > GH_MAX_BYTES){
+    throw new Error('ফাইলটি অনেক বড় (GitHub-এ সরাসরি আপলোডের সীমা প্রায় ৯৫MB)।');
+  }
+  const base64 = await fileToBase64(file);
+  await ghPutFile(repoPath, base64, message, token, null);
+  return ghRawUrl(repoPath).split('?')[0];
+}
 
-function getVideos(){
-  if(storageBlocked) return memoryVideos;
-  try{ return JSON.parse(localStorage.getItem('nishikotha_videos') || '[]'); }
-  catch(e){ return memoryVideos; }
+/* ---- ভিডিও ক্যাশ: GitHub-এর data/videos.json থেকে লোড হয়, সব ভিসিটরের জন্য একই ---- */
+const VIDEOS_MANIFEST_PATH = "data/videos.json";
+let videosCache = [];
+let videosLoadFailed = false;
+
+async function loadVideosFromGithub(){
+  const data = await ghReadManifest(VIDEOS_MANIFEST_PATH);
+  if(data === null){ videosLoadFailed = true; return videosCache; }
+  videosLoadFailed = false;
+  videosCache = data;
+  return videosCache;
 }
-function saveVideos(list){
-  if(storageBlocked){ memoryVideos = list; return; }
-  try{ localStorage.setItem('nishikotha_videos', JSON.stringify(list)); }
-  catch(e){ storageBlocked = true; memoryVideos = list; }
-}
+function getVideos(){ return videosCache; }
+function saveVideos(list){ videosCache = list; }
 function catNameOf(key){
   return (VIDEO_CATEGORIES.find(c=>c.key===key)||{}).name || key;
 }
@@ -6835,75 +6942,6 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function escapeAttr(s){ return escapeHtml(s); }
-
-/* ---- IndexedDB: stores actual uploaded video file bytes (Blobs).
-   localStorage only keeps small metadata; real video files are far too
-   large for localStorage, so raw file bytes live here instead. Falls
-   back to an in-memory Map when IndexedDB is unavailable/blocked
-   (videos still play for the session, just won't survive a reload). ---- */
-const VIDEO_DB_NAME = "nishikotha_video_files";
-const VIDEO_STORE = "files";
-let videoDbPromise = null;
-let idbBlocked = (typeof indexedDB === 'undefined');
-const memoryFiles = new Map();
-
-function openVideoDb(){
-  if(idbBlocked) return Promise.reject(new Error('indexeddb-unavailable'));
-  if(videoDbPromise) return videoDbPromise;
-  videoDbPromise = new Promise((resolve, reject)=>{
-    let req;
-    try{ req = indexedDB.open(VIDEO_DB_NAME, 1); }
-    catch(e){ reject(e); return; }
-    req.onupgradeneeded = ()=>{ req.result.createObjectStore(VIDEO_STORE); };
-    req.onsuccess = ()=> resolve(req.result);
-    req.onerror = ()=> reject(req.error);
-    req.onblocked = ()=> reject(new Error('indexeddb-blocked'));
-  });
-  return videoDbPromise;
-}
-async function idbPutFile(key, blob){
-  if(idbBlocked){ memoryFiles.set(key, blob); return true; }
-  try{
-    const db = await openVideoDb();
-    return await new Promise((resolve, reject)=>{
-      const tx = db.transaction(VIDEO_STORE, "readwrite");
-      tx.objectStore(VIDEO_STORE).put(blob, key);
-      tx.oncomplete = ()=> resolve(true);
-      tx.onerror = ()=> reject(tx.error);
-    });
-  }catch(e){
-    idbBlocked = true;
-    memoryFiles.set(key, blob);
-    return true;
-  }
-}
-async function idbGetFile(key){
-  if(idbBlocked) return memoryFiles.get(key) || null;
-  try{
-    const db = await openVideoDb();
-    return await new Promise((resolve, reject)=>{
-      const tx = db.transaction(VIDEO_STORE, "readonly");
-      const req = tx.objectStore(VIDEO_STORE).get(key);
-      req.onsuccess = ()=> resolve(req.result || null);
-      req.onerror = ()=> reject(req.error);
-    });
-  }catch(e){
-    return memoryFiles.get(key) || null;
-  }
-}
-async function idbDeleteFile(key){
-  memoryFiles.delete(key);
-  if(idbBlocked) return true;
-  try{
-    const db = await openVideoDb();
-    return await new Promise((resolve, reject)=>{
-      const tx = db.transaction(VIDEO_STORE, "readwrite");
-      tx.objectStore(VIDEO_STORE).delete(key);
-      tx.oncomplete = ()=> resolve(true);
-      tx.onerror = ()=> reject(tx.error);
-    });
-  }catch(e){ return true; }
-}
 
 /* ---- Platform detection: identifies the source platform of a pasted
    link so we can (a) build the right embed player and (b) always show
@@ -6980,7 +7018,7 @@ function renderVideoGrid(){
     const isFile = v.source === 'file';
     const platformInfo = isFile ? null : detectPlatform(v.url);
     const embedBlock = isFile
-      ? `<div class="video-embed" data-file-key="${v.id}"><div class="video-fallback"><div class="play-ic">▶</div><span>ভিডিও লোড হচ্ছে...</span></div></div>`
+      ? `<div class="video-embed"><video controls preload="metadata" src="${escapeAttr(v.url)}"></video></div>`
       : `<div class="video-embed">${buildLinkEmbed(v)}</div>`;
     const platformLink = (!isFile && v.url) ? `<a class="video-platform-link" href="${escapeAttr(v.url)}" target="_blank" rel="noopener noreferrer">↗ ${escapeHtml(platformInfo.platform)}-এ দেখুন</a>` : '';
     const sourceBadge = isFile ? `<span class="video-platform-badge">📁 আপলোড করা ফাইল</span>` : `<span class="video-platform-badge">${escapeHtml(platformInfo.platform)}</span>`;
@@ -6997,49 +7035,60 @@ function renderVideoGrid(){
         </div>
         <div class="video-card-actions">
           ${platformLink}
-          <button class="video-del-btn" data-id="${v.id}">মুছে ফেলো</button>
+          ${isNoteAdminUnlocked() ? `<button class="video-del-btn" data-id="${v.id}">মুছে ফেলো</button>` : ''}
         </div>
       </div>
     </div>`;
   }).join('');
 
-  // Asynchronously hydrate uploaded-file videos: pull the Blob out of
-  // IndexedDB and wire it into a real <video> element.
-  grid.querySelectorAll('.video-embed[data-file-key]').forEach(async (el)=>{
-    const key = el.dataset.fileKey;
-    try{
-      const blob = await idbGetFile(key);
-      if(!blob){
-        el.innerHTML = `<div class="video-fallback"><div class="play-ic">⚠</div><span>ফাইলটি খুঁজে পাওয়া যায়নি — হয়তো অন্য ব্রাউজার/ডিভাইসে আপলোড হয়েছিল।</span></div>`;
-        return;
-      }
-      const objUrl = URL.createObjectURL(blob);
-      el.innerHTML = `<video controls preload="metadata" src="${objUrl}"></video>`;
-    }catch(err){
-      el.innerHTML = `<div class="video-fallback"><div class="play-ic">⚠</div><span>ভিডিও লোড করতে সমস্যা হয়েছে।</span></div>`;
-    }
-  });
-
   grid.querySelectorAll('.video-del-btn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
+      if(!isNoteAdminUnlocked()){
+        alert("শুধুমাত্র অ্যাডমিন এই ভিডিও ডিলিট করতে পারবে। আগে অ্যাডমিন লগইন করো।");
+        return;
+      }
       const id = btn.dataset.id;
       const all = getVideos();
       const target = all.find(v=>String(v.id)===String(id));
-      const remaining = all.filter(v=>String(v.id)!==String(id));
-      saveVideos(remaining);
-      if(target && target.source === 'file'){
-        try{ await idbDeleteFile(String(target.id)); }catch(e){}
+      if(target && !confirm(`"${target.title}" ভিডিওটি স্থায়ীভাবে মুছে ফেলতে চাও? এটা আর ফেরানো যাবে না — GitHub রিপো থেকেও মুছে যাবে।`)) return;
+      // ডিলিট বাটনে ক্লিক আর আসল ডিলিট হওয়ার মাঝে সময় পার হয়, তাই confirm-এর
+      // পরেও অ্যাডমিন-স্ট্যাটাস আবার যাচাই করা হচ্ছে — লগইন সেশন যদি এর
+      // মাঝে শেষ হয়ে যায়, তাহলেও অ্যাডমিন ছাড়া কেউ ডিলিট করতে পারবে না।
+      if(!isNoteAdminUnlocked()) return;
+      const token = askGithubToken();
+      if(!token) return;
+      btn.disabled = true; btn.textContent = "মুছে ফেলা হচ্ছে...";
+      try{
+        const remaining = all.filter(v=>String(v.id)!==String(id));
+        await ghWriteManifest(VIDEOS_MANIFEST_PATH, remaining, `Delete video: ${target ? target.title : id}`, token);
+        saveVideos(remaining);
+        if(target && target.source === 'file' && target.repoPath){
+          try{
+            const fileSha = await ghGetSha(target.repoPath, token);
+            if(fileSha) await ghDeleteFile(target.repoPath, `Delete video file: ${target.fileName || target.title}`, token, fileSha);
+          }catch(e){ console.warn('video file delete failed', e); }
+        }
+        renderVideoGrid();
+      }catch(e){
+        alert("ডিলিট করতে সমস্যা হয়েছে: " + (e && e.message ? e.message : e));
+        btn.disabled = false; btn.textContent = "মুছে ফেলো";
       }
-      renderVideoGrid();
     });
   });
 }
 
-function renderVideoView(){
+async function renderVideoView(){
+  const grid = document.getElementById('videoGrid');
+  if(grid && videosCache.length === 0){
+    grid.innerHTML = `<div class="video-empty">ভিডিও লোড হচ্ছে...</div>`;
+  }
+  renderVideoFilterBar();
+  await loadVideosFromGithub();
   renderVideoFilterBar();
   renderVideoGrid();
   const notice = document.getElementById('vidStorageNotice');
-  if(notice) notice.style.display = storageBlocked ? 'block' : 'none';
+  if(notice) notice.style.display = videosLoadFailed ? 'block' : 'none';
+  if(typeof updateVideoAdminUI === 'function') updateVideoAdminUI();
 }
 
 /* ---- Source toggle: link vs. file upload ---- */
@@ -7102,7 +7151,6 @@ document.getElementById('addVideoForm').addEventListener('submit', async (e)=>{
       return;
     }
 
-    const videos = getVideos();
     const newId = Date.now();
 
     if(videoCurrentSource === 'link'){
@@ -7114,9 +7162,23 @@ document.getElementById('addVideoForm').addEventListener('submit', async (e)=>{
         msg.className = "video-form-msg show err";
         return;
       }
-      videos.push({ id:newId, source:'link', title, category, url, desc, date:new Date().toLocaleDateString('bn-IN') });
-      saveVideos(videos);
-      finishAddVideo(msg, e.target);
+      const token = askGithubToken();
+      if(!token) return;
+      submitBtn.disabled = true;
+      submitBtn.textContent = "যোগ হচ্ছে...";
+      try{
+        await loadVideosFromGithub();
+        const videos = getVideos();
+        videos.push({ id:newId, source:'link', title, category, url, desc, date:new Date().toLocaleDateString('bn-IN') });
+        await ghWriteManifest(VIDEOS_MANIFEST_PATH, videos, `Add video: ${title}`, token);
+        saveVideos(videos);
+        finishAddVideo(msg, e.target);
+      }catch(err){
+        msg.textContent = "ভিডিও যোগ করতে সমস্যা হয়েছে: " + (err && err.message ? err.message : err);
+        msg.className = "video-form-msg show err";
+      }
+      submitBtn.disabled = false;
+      submitBtn.textContent = "ভিডিও যোগ করো";
     } else {
       const fileInput = document.getElementById('vidFile');
       const file = fileInput.files[0];
@@ -7125,29 +7187,33 @@ document.getElementById('addVideoForm').addEventListener('submit', async (e)=>{
         msg.className = "video-form-msg show err";
         return;
       }
+      const token = askGithubToken();
+      if(!token) return;
       submitBtn.disabled = true;
       submitBtn.textContent = "আপলোড হচ্ছে...";
       try{
-        await idbPutFile(String(newId), file);
+        const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, '_');
+        const repoPath = `files/videos/${newId}-${safeName}`;
+        const url = await ghUploadFile(repoPath, file, `Upload video file: ${file.name}`, token);
+        await loadVideosFromGithub();
+        const videos = getVideos();
         videos.push({
-          id:newId, source:'file', title, category, desc,
+          id:newId, source:'file', title, category, desc, url, repoPath,
           fileName:file.name, mimeType:file.type,
           date:new Date().toLocaleDateString('bn-IN')
         });
+        await ghWriteManifest(VIDEOS_MANIFEST_PATH, videos, `Add video: ${title}`, token);
         saveVideos(videos);
         finishAddVideo(msg, e.target);
       }catch(err){
-        msg.textContent = "ফাইলটি সংরক্ষণ করতে সমস্যা হয়েছে (হয়তো ফাইলটি অনেক বড় বা ব্রাউজারের স্টোরেজ পূর্ণ)।";
+        msg.textContent = "ভিডিও আপলোড করতে সমস্যা হয়েছে: " + (err && err.message ? err.message : err);
         msg.className = "video-form-msg show err";
       }
       submitBtn.disabled = false;
       submitBtn.textContent = "ভিডিও যোগ করো";
     }
   }catch(err){
-    // Catch-all so a blocked/unavailable storage API (e.g. inside a
-    // restricted preview frame) always shows feedback instead of the
-    // button silently doing nothing.
-    msg.textContent = "ভিডিও যোগ করতে সমস্যা হয়েছে। ব্রাউজারে সরাসরি ফাইলটি খুলে আবার চেষ্টা করো।";
+    msg.textContent = "ভিডিও যোগ করতে সমস্যা হয়েছে। আবার চেষ্টা করো।";
     msg.className = "video-form-msg show err";
     submitBtn.disabled = false;
     submitBtn.textContent = "ভিডিও যোগ করো";
@@ -7155,9 +7221,7 @@ document.getElementById('addVideoForm').addEventListener('submit', async (e)=>{
 });
 
 function finishAddVideo(msg, formEl){
-  msg.textContent = storageBlocked
-    ? "ভিডিও যোগ হয়েছে (এই সেশনের জন্য — পেজ রিলোড/বন্ধ করলে হারিয়ে যাবে)।"
-    : "ভিডিও সফলভাবে যোগ হয়েছে!";
+  msg.textContent = "ভিডিও সফলভাবে যোগ হয়েছে! (কয়েক সেকেন্ডের মধ্যে সবাই দেখতে পাবে)";
   msg.className = "video-form-msg show ok";
   formEl.reset();
   document.getElementById('vidFileInfo').textContent = '';
@@ -7172,18 +7236,21 @@ const NOTE_CATEGORIES = [{key:"general", name:"সাধারণ / অন্য
   EXAMS.map(e=>({key:e.key, name:e.name}))
 );
 let notesActiveFilter = "all";
-let memoryNotes = [];
 
-function getNotes(){
-  if(storageBlocked) return memoryNotes;
-  try{ return JSON.parse(localStorage.getItem('nishikotha_notes') || '[]'); }
-  catch(e){ return memoryNotes; }
+/* ---- নোট ক্যাশ: GitHub-এর data/notes.json থেকে লোড হয়, সব ভিসিটরের জন্য একই ---- */
+const NOTES_MANIFEST_PATH = "data/notes.json";
+let notesCache = [];
+let notesLoadFailed = false;
+
+async function loadNotesFromGithub(){
+  const data = await ghReadManifest(NOTES_MANIFEST_PATH);
+  if(data === null){ notesLoadFailed = true; return notesCache; }
+  notesLoadFailed = false;
+  notesCache = data;
+  return notesCache;
 }
-function saveNotes(list){
-  if(storageBlocked){ memoryNotes = list; return; }
-  try{ localStorage.setItem('nishikotha_notes', JSON.stringify(list)); }
-  catch(e){ storageBlocked = true; memoryNotes = list; }
-}
+function getNotes(){ return notesCache; }
+function saveNotes(list){ notesCache = list; }
 function noteCatNameOf(key){
   return (NOTE_CATEGORIES.find(c=>c.key===key)||{}).name || key;
 }
@@ -7193,77 +7260,6 @@ function formatBytes(bytes){
   if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
   if(bytes < 1024*1024*1024) return (bytes/1024/1024).toFixed(1) + ' MB';
   return (bytes/1024/1024/1024).toFixed(2) + ' GB';
-}
-
-/* ---- IndexedDB: stores the actual PDF file bytes (Blobs). Large PDFs
-   are far too big for localStorage (which only holds a few MB total and
-   is synchronous/string-only), so raw PDF bytes live in their own
-   IndexedDB database — this scales to very large files without choking
-   the page. Falls back to an in-memory Map when IndexedDB is
-   unavailable/blocked (PDFs still open for the session, just won't
-   survive a reload). ---- */
-const NOTE_DB_NAME = "nishikotha_note_files";
-const NOTE_STORE = "files";
-let noteDbPromise = null;
-let noteIdbBlocked = (typeof indexedDB === 'undefined');
-const memoryNoteFiles = new Map();
-
-function openNoteDb(){
-  if(noteIdbBlocked) return Promise.reject(new Error('indexeddb-unavailable'));
-  if(noteDbPromise) return noteDbPromise;
-  noteDbPromise = new Promise((resolve, reject)=>{
-    let req;
-    try{ req = indexedDB.open(NOTE_DB_NAME, 1); }
-    catch(e){ reject(e); return; }
-    req.onupgradeneeded = ()=>{ req.result.createObjectStore(NOTE_STORE); };
-    req.onsuccess = ()=> resolve(req.result);
-    req.onerror = ()=> reject(req.error);
-    req.onblocked = ()=> reject(new Error('indexeddb-blocked'));
-  });
-  return noteDbPromise;
-}
-async function idbPutNote(key, blob){
-  if(noteIdbBlocked){ memoryNoteFiles.set(key, blob); return true; }
-  try{
-    const db = await openNoteDb();
-    return await new Promise((resolve, reject)=>{
-      const tx = db.transaction(NOTE_STORE, "readwrite");
-      tx.objectStore(NOTE_STORE).put(blob, key);
-      tx.oncomplete = ()=> resolve(true);
-      tx.onerror = ()=> reject(tx.error);
-    });
-  }catch(e){
-    noteIdbBlocked = true;
-    memoryNoteFiles.set(key, blob);
-    return true;
-  }
-}
-async function idbGetNote(key){
-  if(noteIdbBlocked) return memoryNoteFiles.get(key) || null;
-  try{
-    const db = await openNoteDb();
-    return await new Promise((resolve, reject)=>{
-      const tx = db.transaction(NOTE_STORE, "readonly");
-      const req = tx.objectStore(NOTE_STORE).get(key);
-      req.onsuccess = ()=> resolve(req.result || null);
-      req.onerror = ()=> reject(req.error);
-    });
-  }catch(e){
-    return memoryNoteFiles.get(key) || null;
-  }
-}
-async function idbDeleteNote(key){
-  memoryNoteFiles.delete(key);
-  if(noteIdbBlocked) return true;
-  try{
-    const db = await openNoteDb();
-    return await new Promise((resolve, reject)=>{
-      const tx = db.transaction(NOTE_STORE, "readwrite");
-      tx.objectStore(NOTE_STORE).delete(key);
-      tx.oncomplete = ()=> resolve(true);
-      tx.onerror = ()=> reject(tx.error);
-    });
-  }catch(e){ return true; }
 }
 
 function renderNotesFilterBar(){
@@ -7305,7 +7301,7 @@ function renderNotesGrid(){
         </div>
         <div class="video-card-actions">
           <button type="button" class="note-open-btn" data-id="${n.id}">📖 খুলে দেখো</button>
-          <button class="video-del-btn" data-id="${n.id}">মুছে ফেলো</button>
+          ${isNoteAdminUnlocked() ? `<button class="video-del-btn" data-id="${n.id}">মুছে ফেলো</button>` : ''}
         </div>
       </div>
     </div>`
@@ -7316,12 +7312,33 @@ function renderNotesGrid(){
   });
   grid.querySelectorAll('.video-del-btn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
+      if(!isNoteAdminUnlocked()){
+        alert("শুধুমাত্র অ্যাডমিন এই নোট ডিলিট করতে পারবে। আগে অ্যাডমিন লগইন করো।");
+        return;
+      }
       const id = btn.dataset.id;
       const all2 = getNotes();
-      const remaining = all2.filter(n=>String(n.id)!==String(id));
-      saveNotes(remaining);
-      try{ await idbDeleteNote(String(id)); }catch(e){}
-      renderNotesGrid();
+      const target2 = all2.find(n=>String(n.id)===String(id));
+      if(target2 && !confirm(`"${target2.title}" নোটটি স্থায়ীভাবে মুছে ফেলতে চাও? এটা আর ফেরানো যাবে না — GitHub রিপো থেকেও মুছে যাবে।`)) return;
+      if(!isNoteAdminUnlocked()) return;
+      const token = askGithubToken();
+      if(!token) return;
+      btn.disabled = true; btn.textContent = "মুছে ফেলা হচ্ছে...";
+      try{
+        const remaining = all2.filter(n=>String(n.id)!==String(id));
+        await ghWriteManifest(NOTES_MANIFEST_PATH, remaining, `Delete note: ${target2 ? target2.title : id}`, token);
+        saveNotes(remaining);
+        if(target2 && target2.repoPath){
+          try{
+            const fileSha = await ghGetSha(target2.repoPath, token);
+            if(fileSha) await ghDeleteFile(target2.repoPath, `Delete note file: ${target2.fileName || target2.title}`, token, fileSha);
+          }catch(e){ console.warn('note file delete failed', e); }
+        }
+        renderNotesGrid();
+      }catch(e){
+        alert("ডিলিট করতে সমস্যা হয়েছে: " + (e && e.message ? e.message : e));
+        btn.disabled = false; btn.textContent = "মুছে ফেলো";
+      }
     });
   });
 }
@@ -7431,19 +7448,15 @@ async function openNoteViewer(id){
   openTabLink.style.display = 'none';
   modal.classList.add('open');
   try{
-    const blob = await idbGetNote(String(note.id));
-    if(!blob){
-      showPdfFallback(`<div>⚠ ফাইলটি খুঁজে পাওয়া যায়নি — হয়তো অন্য ব্রাউজার/ডিভাইসে আপলোড হয়েছিল, অথবা এই সেশনের অস্থায়ী স্টোরেজ থেকে পেজ রিলোডের কারণে হারিয়ে গেছে।</div>`);
+    if(!note.url){
+      showPdfFallback(`<div>⚠ ফাইলের লিংক পাওয়া যায়নি।</div>`);
       return;
     }
-    if(currentNoteObjectUrl){ URL.revokeObjectURL(currentNoteObjectUrl); }
-    currentNoteObjectUrl = URL.createObjectURL(blob);
-    openTabLink.href = currentNoteObjectUrl;
+    openTabLink.href = note.url;
     openTabLink.style.display = '';
 
     const pdfjsLib = await loadPdfJs();
-    const arrayBuffer = await blob.arrayBuffer();
-    const doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const doc = await pdfjsLib.getDocument({ url: note.url }).promise;
     pdfViewerState.doc = doc;
 
     const firstPage = await doc.getPage(1);
@@ -7510,7 +7523,12 @@ try{
 }catch(e){ console.warn('Firebase init failed:', e); }
 
 function isNoteAdminUnlocked(){
-  return !!(noteFirebaseAuth && noteFirebaseAuth.currentUser);
+  // শুধু লগইন করা থাকলেই হবে না — যে ইমেইল দিয়ে লগইন করা হয়েছে সেটা
+  // ঠিক NOTE_ADMIN_EMAIL-এর সাথে মিলতে হবে। এতে করে ভবিষ্যতে Firebase
+  // প্রজেক্টে ভুলবশত অন্য কোনো ইউজার যোগ হয়ে গেলেও সে অ্যাডমিন মোড
+  // আনলক করতে পারবে না — শুধুমাত্র নির্দিষ্ট অ্যাডমিন ইমেইলই পারবে।
+  const u = noteFirebaseAuth && noteFirebaseAuth.currentUser;
+  return !!(u && u.email && u.email.toLowerCase() === NOTE_ADMIN_EMAIL.toLowerCase());
 }
 function updateNoteAdminUI(){
   const box = document.getElementById('noteAdminBox');
@@ -7524,11 +7542,27 @@ function updateNoteAdminUI(){
   const unlocked = isNoteAdminUnlocked();
   box.style.display = unlocked ? '' : 'none';
   btn.textContent = unlocked ? '🔓 অ্যাডমিন মোড (লক করো)' : '🔒 অ্যাডমিন';
+  if(typeof renderNotesGrid === 'function' && document.getElementById('notesGrid')) renderNotesGrid();
+}
+/* ---- Video section shares the same admin login as Notes ---- */
+function updateVideoAdminUI(){
+  const box = document.getElementById('videoAdminBox');
+  const btn = document.getElementById('vidAdminToggleBtn');
+  if(!box || !btn) return;
+  if(!noteFirebaseReady){
+    btn.textContent = '🔒 অ্যাডমিন (সেটআপ বাকি)';
+    box.style.display = 'none';
+    return;
+  }
+  const unlocked = isNoteAdminUnlocked();
+  box.style.display = unlocked ? '' : 'none';
+  btn.textContent = unlocked ? '🔓 অ্যাডমিন মোড (লক করো)' : '🔒 অ্যাডমিন';
+  if(typeof renderVideoGrid === 'function' && document.getElementById('videoGrid')) renderVideoGrid();
 }
 if(noteFirebaseAuth){
-  noteFirebaseAuth.onAuthStateChanged(()=>{ updateNoteAdminUI(); });
+  noteFirebaseAuth.onAuthStateChanged(()=>{ updateNoteAdminUI(); updateVideoAdminUI(); });
 }
-document.getElementById('noteAdminToggleBtn').addEventListener('click', async ()=>{
+async function handleAdminToggleClick(){
   if(!noteFirebaseReady){
     alert("অ্যাডমিন লগইন এখনো সেটআপ করা হয়নি। ফাইলের শুরুতে NOTE_FIREBASE_CONFIG ও NOTE_ADMIN_EMAIL পূরণ করো।");
     return;
@@ -7536,6 +7570,7 @@ document.getElementById('noteAdminToggleBtn').addEventListener('click', async ()
   if(isNoteAdminUnlocked()){
     await noteFirebaseAuth.signOut();
     updateNoteAdminUI();
+    updateVideoAdminUI();
     return;
   }
   const entered = prompt("অ্যাডমিন পাসওয়ার্ড দাও:\n(পাসওয়ার্ড ভুলে গেলে \"reset\" লিখে OK করো — রিসেট লিংক ইমেইলে যাবে)");
@@ -7552,6 +7587,7 @@ document.getElementById('noteAdminToggleBtn').addEventListener('click', async ()
   try{
     await noteFirebaseAuth.signInWithEmailAndPassword(NOTE_ADMIN_EMAIL, entered);
     updateNoteAdminUI();
+    updateVideoAdminUI();
   }catch(e){
     const wantsReset = confirm("পাসওয়ার্ড ভুল হয়েছে অথবা লগইন ব্যর্থ হয়েছে।\n\nপাসওয়ার্ড রিসেট লিংক ইমেইলে পাঠাতে চাও?");
     if(wantsReset){
@@ -7563,18 +7599,27 @@ document.getElementById('noteAdminToggleBtn').addEventListener('click', async ()
       }
     }
   }
-});
+}
+document.getElementById('noteAdminToggleBtn').addEventListener('click', handleAdminToggleClick);
+const vidAdminBtnEl = document.getElementById('vidAdminToggleBtn');
+if(vidAdminBtnEl) vidAdminBtnEl.addEventListener('click', handleAdminToggleClick);
 
-function renderNotesView(){
+async function renderNotesView(){
   const catSelect = document.getElementById('noteCategory');
   if(catSelect && !catSelect.dataset.filled){
     catSelect.innerHTML = NOTE_CATEGORIES.map(c=>`<option value="${c.key}">${escapeHtml(c.name)}</option>`).join('');
     catSelect.dataset.filled = '1';
   }
+  const grid = document.getElementById('notesGrid');
+  if(grid && notesCache.length === 0){
+    grid.innerHTML = `<div class="video-empty">নোট লোড হচ্ছে...</div>`;
+  }
+  renderNotesFilterBar();
+  await loadNotesFromGithub();
   renderNotesFilterBar();
   renderNotesGrid();
   const notice = document.getElementById('noteStorageNotice');
-  if(notice) notice.style.display = (storageBlocked || noteIdbBlocked) ? 'block' : 'none';
+  if(notice) notice.style.display = notesLoadFailed ? 'block' : 'none';
   updateNoteAdminUI();
 }
 
@@ -7616,21 +7661,25 @@ document.getElementById('addNoteForm').addEventListener('submit', async (e)=>{
       return;
     }
 
+    const token = askGithubToken();
+    if(!token) return;
     submitBtn.disabled = true;
     submitBtn.textContent = "আপলোড হচ্ছে...";
     const newId = Date.now();
     try{
-      await idbPutNote(String(newId), file);
+      const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, '_');
+      const repoPath = `files/notes/${newId}-${safeName}`;
+      const url = await ghUploadFile(repoPath, file, `Upload note file: ${file.name}`, token);
+      await loadNotesFromGithub();
       const notes = getNotes();
       notes.push({
-        id:newId, title, category, desc,
+        id:newId, title, category, desc, url, repoPath,
         fileName:file.name, size:file.size,
         date:new Date().toLocaleDateString('bn-IN')
       });
+      await ghWriteManifest(NOTES_MANIFEST_PATH, notes, `Add note: ${title}`, token);
       saveNotes(notes);
-      msg.textContent = (storageBlocked || noteIdbBlocked)
-        ? "পিডিএফ যোগ হয়েছে (এই সেশনের জন্য — পেজ রিলোড/বন্ধ করলে হারিয়ে যাবে)।"
-        : "পিডিএফ সফলভাবে যোগ হয়েছে!";
+      msg.textContent = "পিডিএফ সফলভাবে যোগ হয়েছে! (কয়েক সেকেন্ডের মধ্যে সবাই দেখতে পাবে)";
       msg.className = "video-form-msg show ok";
       e.target.reset();
       document.getElementById('noteFileInfo').textContent = '';
@@ -7638,7 +7687,7 @@ document.getElementById('addNoteForm').addEventListener('submit', async (e)=>{
       renderNotesView();
       setTimeout(()=>{ msg.className = "video-form-msg"; }, 3500);
     }catch(err){
-      msg.textContent = "ফাইলটি সংরক্ষণ করতে সমস্যা হয়েছে (হয়তো ফাইলটি অনেক বড় বা ব্রাউজারের স্টোরেজ পূর্ণ)।";
+      msg.textContent = "পিডিএফ আপলোড করতে সমস্যা হয়েছে: " + (err && err.message ? err.message : err);
       msg.className = "video-form-msg show err";
     }
     submitBtn.disabled = false;
@@ -7925,6 +7974,11 @@ function renderSearchResults(query){
    installing in the background, it takes control and reloads the page
    once automatically so visitors always land on the latest deployed
    version without needing to hard-refresh or clear their cache. */
+/* পেজ লোড হওয়ার পরপরই ভিডিও/নোট manifest ব্যাকগ্রাউন্ডে প্রিফেচ করে রাখা হয়,
+   যাতে ওই ট্যাবে না গিয়েও গ্লোবাল সার্চ থেকে ভিডিও/নোট খুঁজে পাওয়া যায়। */
+loadVideosFromGithub().catch(()=>{});
+loadNotesFromGithub().catch(()=>{});
+
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('sw.js').then((reg)=>{
