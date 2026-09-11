@@ -1159,7 +1159,16 @@
     <h1>বিভিন্ন পরীক্ষার<br><span style="color:var(--gold);">বিগত বছরের প্রশ্নের ধাঁচ।</span></h1>
     <p class="lede">পশ্চিমবঙ্গ পঞ্চায়েত নিয়োগ পরীক্ষা ও RRB Group D-সহ বিভিন্ন পরীক্ষায় আগে যে ধরনের ও যে মানের প্রশ্ন এসেছে, ঠিক সেই প্যাটার্ন অনুসরণ করে তৈরি করা অনুশীলন সেট। আসল প্রশ্নপত্রের হুবহু কপি নয় — উত্তর ও ব্যাখ্যাসহ মৌলিকভাবে লেখা, যাতে নিশ্চিন্তে অনুশীলন করা যায়। উপরে পরীক্ষা বেছে নিন, তারপর "মক টেস্ট মোডে" ইন্টারেক্টিভভাবে উত্তর দিয়ে স্কোর দেখুন, অথবা "পড়ার মোডে" সরাসরি প্রশ্ন-উত্তর পড়ুন।</p>
   </section>
-  <main id="pyqArea" style="max-width:900px;margin:0 auto;padding:10px 20px 80px;"></main>
+  <main style="max-width:900px;margin:0 auto;padding:10px 20px 80px;">
+    <div style="text-align:right; margin-bottom:10px;">
+      <button type="button" class="btn" id="pyqAdminToggleBtn" style="font-size:12.5px; padding:6px 12px; opacity:0.6;">🔒 অ্যাডমিন</button>
+    </div>
+    <div class="video-form-box" id="pyqAdminBox" style="display:none;">
+      <h3>🔓 অ্যাডমিন মোড চালু</h3>
+      <p style="font-size:13.5px; color:var(--fog); margin:0;">এই সেকশনে প্রশ্ন যোগ/এডিট করার ফর্ম এখনো তৈরি হয়নি — নতুন প্রশ্ন সরাসরি ফাইলের <code>PYQ_EXAMS</code> তালিকায় কোড এডিট করে যোগ করতে হবে। লগইন করা আছে এটা শুধু নিশ্চিত করার জন্য এই বাটন।</p>
+    </div>
+    <div id="pyqArea"></div>
+  </main>
 </div>
 
 <div id="view-notes" class="view" style="display:none;">
@@ -1374,14 +1383,6 @@
   <div style="margin-top:8px;">© নিশিকথা আর্কাইভ। সকল গল্প মৌলিক রচনা।</div>
   <div style="margin-top:10px;">
     <a href="#" data-view="terms" onclick="switchView('terms'); return false;" style="color:var(--rust-text); text-decoration:underline; font-size:13px;">শর্তাবলী ও ব্যবহারের নীতিমালা</a>
-  </div>
-  <div style="margin-top:12px; line-height:1.9;">
-    <a href="about.html" style="color:var(--rust-text); text-decoration:underline; font-size:13px;">About Us</a> |
-    <a href="contact.html" style="color:var(--rust-text); text-decoration:underline; font-size:13px;">Contact Us</a> |
-    <a href="privacy-policy.html" style="color:var(--rust-text); text-decoration:underline; font-size:13px;">Privacy Policy</a> |
-    <a href="cookie-policy.html" style="color:var(--rust-text); text-decoration:underline; font-size:13px;">Cookie Policy</a> |
-    <a href="terms.html" style="color:var(--rust-text); text-decoration:underline; font-size:13px;">Terms &amp; Conditions</a> |
-    <a href="disclaimer.html" style="color:var(--rust-text); text-decoration:underline; font-size:13px;">Disclaimer</a>
   </div>
 </footer>
 
@@ -11010,6 +11011,7 @@ function renderPYQ(){
   document.getElementById('pyqModeRead').addEventListener('click', ()=>{ pyqViewMode='read'; renderPYQ(); });
   if(pyqViewMode==='mock') renderPYQMockSetup();
   else renderPYQRead();
+  updatePyqAdminUI();
 }
 
 /* ---- পড়ার মোড: আগের মতো অ্যাকর্ডিয়ন — প্রশ্ন ও সঠিক উত্তর সরাসরি দেখা যায় ---- */
@@ -12338,8 +12340,22 @@ function updateVideoAdminUI(){
   btn.textContent = unlocked ? '🔓 অ্যাডমিন মোড (লক করো)' : '🔒 অ্যাডমিন';
   if(typeof renderVideoGrid === 'function' && document.getElementById('videoGrid')) renderVideoGrid();
 }
+/* ---- PYQ section also shares the same admin login as Notes/Video ---- */
+function updatePyqAdminUI(){
+  const box = document.getElementById('pyqAdminBox');
+  const btn = document.getElementById('pyqAdminToggleBtn');
+  if(!box || !btn) return;
+  if(!noteFirebaseReady){
+    btn.textContent = '🔒 অ্যাডমিন (সেটআপ বাকি)';
+    box.style.display = 'none';
+    return;
+  }
+  const unlocked = isNoteAdminUnlocked();
+  box.style.display = unlocked ? '' : 'none';
+  btn.textContent = unlocked ? '🔓 অ্যাডমিন মোড (লক করো)' : '🔒 অ্যাডমিন';
+}
 if(noteFirebaseAuth){
-  noteFirebaseAuth.onAuthStateChanged(()=>{ updateNoteAdminUI(); updateVideoAdminUI(); });
+  noteFirebaseAuth.onAuthStateChanged(()=>{ updateNoteAdminUI(); updateVideoAdminUI(); updatePyqAdminUI(); });
 }
 async function handleAdminToggleClick(){
   if(!noteFirebaseReady){
@@ -12350,6 +12366,7 @@ async function handleAdminToggleClick(){
     await noteFirebaseAuth.signOut();
     updateNoteAdminUI();
     updateVideoAdminUI();
+    updatePyqAdminUI();
     return;
   }
   const entered = prompt("অ্যাডমিন পাসওয়ার্ড দাও:\n(পাসওয়ার্ড ভুলে গেলে \"reset\" লিখে OK করো — রিসেট লিংক ইমেইলে যাবে)");
@@ -12367,6 +12384,7 @@ async function handleAdminToggleClick(){
     await noteFirebaseAuth.signInWithEmailAndPassword(NOTE_ADMIN_EMAIL, entered);
     updateNoteAdminUI();
     updateVideoAdminUI();
+    updatePyqAdminUI();
   }catch(e){
     const wantsReset = confirm("পাসওয়ার্ড ভুল হয়েছে অথবা লগইন ব্যর্থ হয়েছে।\n\nপাসওয়ার্ড রিসেট লিংক ইমেইলে পাঠাতে চাও?");
     if(wantsReset){
@@ -12382,6 +12400,8 @@ async function handleAdminToggleClick(){
 document.getElementById('noteAdminToggleBtn').addEventListener('click', handleAdminToggleClick);
 const vidAdminBtnEl = document.getElementById('vidAdminToggleBtn');
 if(vidAdminBtnEl) vidAdminBtnEl.addEventListener('click', handleAdminToggleClick);
+const pyqAdminBtnEl = document.getElementById('pyqAdminToggleBtn');
+if(pyqAdminBtnEl) pyqAdminBtnEl.addEventListener('click', handleAdminToggleClick);
 
 async function renderNotesView(){
   const catSelect = document.getElementById('noteCategory');
