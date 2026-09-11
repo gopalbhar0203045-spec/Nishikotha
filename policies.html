@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>নিশিকথা — নীতিমালা ও তথ্য</title>
+<style>
+  :root{
+    --bg: #150f0c;
+    --panel: #1e1611;
+    --border: #4a3a25;
+    --gold: #d8b25c;
+    --gold-dim: #a98a45;
+    --text: #ece4d6;
+    --text-dim: #b8ab97;
+    --maroon: #7a2b2b;
+    --maroon-light: #9c3a3a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif;
+    line-height:1.7;
+  }
+  header{
+    padding:28px 20px 20px;
+    border-bottom:1px solid var(--border);
+    text-align:center;
+  }
+  header h1{
+    margin:0 0 6px;
+    font-size:1.9rem;
+    color:var(--gold);
+    letter-spacing:0.5px;
+  }
+  header p{
+    margin:0;
+    color:var(--text-dim);
+    font-size:0.95rem;
+  }
+  nav{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    padding:18px 16px;
+    border-bottom:1px solid var(--border);
+    position:sticky;
+    top:0;
+    background:var(--bg);
+    z-index:10;
+  }
+  nav a{
+    color:var(--gold-dim);
+    text-decoration:none;
+    border:1px solid var(--border);
+    padding:8px 14px;
+    border-radius:999px;
+    font-size:0.85rem;
+    transition:0.2s;
+    white-space:nowrap;
+  }
+  nav a:hover, nav a:focus{
+    color:var(--bg);
+    background:var(--gold);
+    border-color:var(--gold);
+  }
+  main{
+    max-width:760px;
+    margin:0 auto;
+    padding:10px 20px 60px;
+  }
+  section{
+    padding:36px 0;
+    border-bottom:1px solid var(--border);
+  }
+  section:last-child{ border-bottom:none; }
+  section h2{
+    color:var(--gold);
+    font-size:1.3rem;
+    margin:0 0 16px;
+    padding-left:12px;
+    border-left:3px solid var(--maroon-light);
+  }
+  section h3{
+    color:var(--text);
+    font-size:1.05rem;
+    margin:22px 0 8px;
+  }
+  p{ color:var(--text-dim); margin:0 0 12px; }
+  ul{ color:var(--text-dim); padding-left:22px; margin:0 0 12px;}
+  li{ margin-bottom:6px; }
+  .updated{
+    display:inline-block;
+    font-size:0.8rem;
+    color:var(--gold-dim);
+    border:1px solid var(--border);
+    padding:3px 10px;
+    border-radius:6px;
+    margin-bottom:18px;
+  }
+  .note-box{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-left:3px solid var(--gold-dim);
+    padding:14px 16px;
+    border-radius:6px;
+    color:var(--text-dim);
+    font-size:0.92rem;
+    margin:14px 0;
+  }
+  .contact-box{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:20px;
+  }
+  .contact-box p{ margin:0 0 8px; }
+  .contact-box strong{ color:var(--text); }
+  a.inline-link{ color:var(--gold); }
+  footer{
+    text-align:center;
+    padding:24px 20px 40px;
+    color:var(--text-dim);
+    font-size:0.85rem;
+    border-top:1px solid var(--border);
+  }
+  ::selection{ background:var(--maroon-light); color:#fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>নিশিকথা</h1>
+  <p>বিবরণ, নীতিমালা এবং প্রয়োজনীয় তথ্য</p>
+</header>
+
+<nav>
+  <a href="#about">সাইট সম্পর্কে</a>
+  <a href="#privacy">গোপনীয়তা নীতি</a>
+  <a href="#terms">ব্যবহারের শর্তাবলী</a>
+  <a href="#refund">রিফান্ড নীতি</a>
+  <a href="#disclaimer">দাবিত্যাগ</a>
+  <a href="#contact">যোগাযোগ</a>
+</nav>
+
+<main>
+
+  <section id="about">
+    <h2>সাইট সম্পর্কে</h2>
+    <p>
+      নিশিকথা একটি বাংলা ভাষার ওয়েবসাইট, যেখানে দুই ধরনের কনটেন্ট পাওয়া যায় —
+      একদিকে মৌলিক বাংলা গল্পের সংগ্রহ (হরর, গোয়েন্দা, রোমান্স, ঐতিহাসিক ও ম্যাজিক্যাল
+      রিয়ালিজম ধাঁচের গল্প), অন্যদিকে পশ্চিমবঙ্গের বিভিন্ন প্রতিযোগিতামূলক পরীক্ষার
+      (যেমন পঞ্চায়েত, WBCS, ব্যাংক, SSC, রেল ইত্যাদি) জন্য প্রস্তুতিমূলক উপকরণ —
+      পড়াশোনার নোট, মক টেস্ট, পূর্ববর্তী বছরের প্রশ্ন এবং পিডিএফ সংগ্রহ।
+    </p>
+    <p>
+      সাইটের লক্ষ্য বাংলাভাষী পাঠক ও পরীক্ষার্থীদের জন্য একটি জায়গায় বিনোদনমূলক
+      পাঠ ও শিক্ষামূলক উপকরণ একসঙ্গে সহজলভ্য করা।
+    </p>
+  </section>
+
+  <section id="privacy">
+    <h2>গোপনীয়তা নীতি (Privacy Policy)</h2>
+    <span class="updated">সর্বশেষ হালনাগাদ: ১১ সেপ্টেম্বর, ২০২৬</span>
+
+    <h3>১. আমরা কী তথ্য সংগ্রহ করি</h3>
+    <p>
+      নিশিকথা ব্যবহার করার সময় আমরা সাধারণত ব্যক্তিগতভাবে শনাক্তযোগ্য কোনো তথ্য
+      সরাসরি সংগ্রহ করি না। তবে সাইট পরিচালনার প্রয়োজনে নিম্নলিখিত তথ্য স্বয়ংক্রিয়ভাবে
+      সংগৃহীত হতে পারে:
+    </p>
+    <ul>
+      <li>ব্রাউজারের ধরন, ডিভাইসের তথ্য এবং IP অ্যাড্রেস</li>
+      <li>সাইটে কোন পাতা দেখা হয়েছে এবং কতক্ষণ সময় কাটানো হয়েছে, তার পরিসংখ্যান</li>
+      <li>কুকি (cookies) এর মাধ্যমে সংগৃহীত ব্রাউজিং তথ্য</li>
+    </ul>
+
+    <h3>২. কুকি ব্যবহার</h3>
+    <p>
+      এই সাইট কুকি ব্যবহার করে যাতে ব্যবহারকারীর অভিজ্ঞতা উন্নত করা যায় এবং
+      পরিসংখ্যান বিশ্লেষণ করা যায়। আপনি চাইলে ব্রাউজারের সেটিংস থেকে কুকি বন্ধ
+      করে দিতে পারেন, তবে তাতে সাইটের কিছু ফিচার সঠিকভাবে কাজ নাও করতে পারে।
+    </p>
+
+    <h3>৩. Google AdSense ও তৃতীয় পক্ষের বিজ্ঞাপন</h3>
+    <p>
+      এই সাইটে বিজ্ঞাপন প্রদর্শনের জন্য Google AdSense ব্যবহার করা হয় বা ভবিষ্যতে
+      ব্যবহার করা হতে পারে। Google এবং তার অংশীদার প্রতিষ্ঠানগুলি (third-party vendors),
+      DART cookie সহ বিভিন্ন কুকি ব্যবহার করে থাকে, যাতে আপনার এই সাইট এবং
+      ইন্টারনেটের অন্যান্য সাইটে আগের ভিজিটের ভিত্তিতে প্রাসঙ্গিক বিজ্ঞাপন দেখানো যায়।
+    </p>
+    <p>
+      আপনি চাইলে
+      <a class="inline-link" href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener">Google বিজ্ঞাপন সেটিংস</a>
+      পাতায় গিয়ে ব্যক্তিগতকৃত বিজ্ঞাপন (personalized advertising) বন্ধ করতে পারেন।
+    </p>
+
+    <h3>৪. তৃতীয় পক্ষের লিঙ্ক</h3>
+    <p>
+      এই সাইটে অন্য ওয়েবসাইটের লিঙ্ক থাকতে পারে (যেমন GitHub, YouTube ইত্যাদি)।
+      সেইসব সাইটের নিজস্ব গোপনীয়তা নীতি প্রযোজ্য, যার জন্য নিশিকথা দায়ী নয়।
+    </p>
+
+    <h3>৫. শিশুদের গোপনীয়তা</h3>
+    <p>
+      এই সাইট ১৩ বছরের কম বয়সী শিশুদের কাছ থেকে ইচ্ছাকৃতভাবে কোনো ব্যক্তিগত
+      তথ্য সংগ্রহ করে না। যদি কোনো অভিভাবক মনে করেন তার শিশুর তথ্য আমাদের কাছে
+      চলে এসেছে, অনুগ্রহ করে নিচের যোগাযোগ ঠিকানায় জানান।
+    </p>
+
+    <h3>৬. নীতির পরিবর্তন</h3>
+    <p>
+      সময়ে সময়ে এই গোপনীয়তা নীতি হালনাগাদ করা হতে পারে। কোনো পরিবর্তন হলে তা
+      এই পাতাতেই প্রকাশ করা হবে।
+    </p>
+  </section>
+
+  <section id="terms">
+    <h2>ব্যবহারের শর্তাবলী (Terms &amp; Conditions)</h2>
+    <span class="updated">সর্বশেষ হালনাগাদ: ১১ সেপ্টেম্বর, ২০২৬</span>
+
+    <h3>১. সাইট ব্যবহার</h3>
+    <p>
+      নিশিকথা ব্যবহার করার মাধ্যমে আপনি এই শর্তাবলীর সাথে সম্মত হচ্ছেন।
+      সাইটে থাকা গল্প, নোট, মক টেস্ট ও পিডিএফ শুধুমাত্র ব্যক্তিগত ও অ-বাণিজ্যিক
+      পাঠ ও প্রস্তুতির উদ্দেশ্যে ব্যবহারের জন্য।
+    </p>
+
+    <h3>২. কনটেন্টের মালিকানা</h3>
+    <p>
+      সাইটে প্রকাশিত মৌলিক গল্প ও লেখার সর্বস্বত্ব নিশিকথা ও সংশ্লিষ্ট লেখকের।
+      পূর্বানুমতি ছাড়া কোনো কনটেন্ট পুনঃপ্রকাশ, বিক্রি বা বাণিজ্যিকভাবে ব্যবহার করা যাবে না।
+    </p>
+    <p>
+      পড়াশোনার নোট ও প্রশ্নপত্রের ক্ষেত্রে তথ্য বিভিন্ন সরকারি বিজ্ঞপ্তি, পাঠ্যবই ও
+      সাধারণ জ্ঞানভিত্তিক উৎস থেকে সংকলিত। কোনো ত্রুটি নজরে এলে যোগাযোগ করার
+      অনুরোধ রইল।
+    </p>
+
+    <h3>৩. ব্যবহারকারীর দায়িত্ব</h3>
+    <ul>
+      <li>সাইটের কোনো কনটেন্ট অন্য কোথাও অনুমতি ছাড়া কপি বা পুনঃপ্রকাশ করা যাবে না।</li>
+      <li>সাইট বা এর কনটেন্ট ব্যবহার করে কোনো বেআইনি বা ক্ষতিকর কার্যকলাপ করা যাবে না।</li>
+    </ul>
+
+    <h3>৪. দায়বদ্ধতার সীমা</h3>
+    <p>
+      মক টেস্ট, নোট বা প্রশ্নপত্রের তথ্য যথাসম্ভব সঠিক রাখার চেষ্টা করা হয়, তবে
+      কোনো পরীক্ষার ফলাফলের জন্য নিশিকথা দায়ী থাকবে না। চূড়ান্ত ও নির্ভরযোগ্য
+      তথ্যের জন্য সংশ্লিষ্ট পরীক্ষার অফিসিয়াল বিজ্ঞপ্তি দেখে নেওয়ার পরামর্শ দেওয়া হচ্ছে।
+    </p>
+
+    <h3>৫. শর্তাবলীর পরিবর্তন</h3>
+    <p>
+      সময়ে সময়ে এই শর্তাবলী পরিবর্তিত হতে পারে। পরিবর্তনের পর সাইট ব্যবহার
+      চালিয়ে গেলে তা নতুন শর্তাবলীর প্রতি সম্মতি হিসেবে গণ্য হবে।
+    </p>
+  </section>
+
+  <section id="refund">
+    <h2>রিফান্ড নীতি (Refund Policy)</h2>
+    <span class="updated">সর্বশেষ হালনাগাদ: ১১ সেপ্টেম্বর, ২০২৬</span>
+    <div class="note-box">
+      নিশিকথায় বর্তমানে সব গল্প, নোট, মক টেস্ট এবং পিডিএফ সম্পূর্ণ বিনামূল্যে
+      প্রদান করা হয়। সাইটে কোনো পেইড সাবস্ক্রিপশন, কোর্স বা পণ্য বিক্রি করা হয় না,
+      তাই কোনো অর্থ প্রদান বা রিফান্ডের প্রশ্ন এই মুহূর্তে প্রযোজ্য নয়।
+    </div>
+    <p>
+      ভবিষ্যতে যদি কখনও কোনো পেইড ফিচার (যেমন প্রিমিয়াম মক টেস্ট বা বিশেষ নোট)
+      চালু করা হয়, তাহলে এই পাতায় স্পষ্ট রিফান্ডের শর্ত, সময়সীমা এবং প্রক্রিয়া
+      উল্লেখ করে নীতি হালনাগাদ করা হবে।
+    </p>
+  </section>
+
+  <section id="disclaimer">
+    <h2>দাবিত্যাগ (Disclaimer)</h2>
+    <p>
+      নিশিকথায় প্রকাশিত সব গল্প কাল্পনিক এবং লেখকের সৃজনশীল চিন্তার ফসল। কোনো
+      চরিত্র, ঘটনা বা স্থান বাস্তবের সাথে মিলে গেলে তা নিছকই কাকতালীয়।
+    </p>
+    <p>
+      পরীক্ষা প্রস্তুতির উপকরণ (নোট, মক টেস্ট, প্রশ্নপত্র) সাধারণ তথ্যের ভিত্তিতে
+      তৈরি এবং তা কোনো সরকারি বা অফিসিয়াল উৎসের বিকল্প নয়। চূড়ান্ত সিদ্ধান্তের
+      আগে সংশ্লিষ্ট পরীক্ষার নিয়ন্ত্রক সংস্থার অফিসিয়াল বিজ্ঞপ্তি যাচাই করে নিতে
+      অনুরোধ করা হচ্ছে।
+    </p>
+  </section>
+
+  <section id="contact">
+    <h2>যোগাযোগ</h2>
+    <div class="contact-box">
+      <p>কোনো প্রশ্ন, পরামর্শ, ভুল সংশোধন বা কপিরাইট সংক্রান্ত অভিযোগ থাকলে যোগাযোগ করুন:</p>
+      <p><strong>ইমেইল:</strong> <a class="inline-link" href="mailto:gopalbhar0203045@gmail.com">gopalbhar0203045@gmail.com</a></p>
+      <p><strong>ওয়েবসাইট:</strong> নিশিকথা</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  © <span id="year"></span> নিশিকথা। সর্বস্বত্ব সংরক্ষিত।
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
