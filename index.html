@@ -11689,14 +11689,104 @@ async function ghWriteManifest(path, list, message, token){
   const content = utf8ToBase64(JSON.stringify(list, null, 2));
   await ghPutFile(path, content, message, token, sha);
 }
+/* ---- বড় ফাইল (ভিডিও/PDF) আপলোডের জন্য GitHub Git Data API ----
+   গুরুত্বপূর্ণ বাগ-ফিক্স: আগে এখানে Contents API (PUT /contents/:path)
+   ব্যবহার করা হতো, যেটা এক-কলে ফাইল commit করতে পারলেও GitHub এর
+   ডকুমেন্টেশন অনুযায়ী নির্ভরযোগ্যভাবে কাজ করে শুধু ~1MB পর্যন্ত ফাইলে —
+   এর বেশি সাইজের যেকোনো ভিডিও, এবং বেশিরভাগ PDF নোট, ঐ কলে ব্যর্থ হতো
+   (400/409/422 বা টাইমআউট), তাই "আপলোড হচ্ছে..." এর পর error দেখাতো।
+   Git Data API (blob → tree → commit → ref) দিয়ে একই কাজ করলে ফাইল
+   সাইজ সীমা বেড়ে ~100MB পর্যন্ত হয় (নিচে ৯৫MB নিরাপদ মার্জিন রাখা)। ---- */
+async function ghApiRawRequest(url, options){
+  const res = await fetch(url, options);
+  if(!res.ok){
+    let bodyMsg = '';
+    try{ const j = await res.json(); bodyMsg = j.message || ''; }catch(e){}
+    const err = new Error(`GitHub-এ সমস্যা (${res.status}): ${bodyMsg || 'অজানা কারণ'}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+function ghAuthHeaders(token, extra){
+  return Object.assign({
+    'Authorization': `token ${token}`,
+    'Accept': 'application/vnd.github+json'
+  }, extra || {});
+}
+async function ghGetRefSha(token){
+  const data = await ghApiRawRequest(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/ref/heads/${GH_BRANCH}`,
+    { headers: ghAuthHeaders(token) }
+  );
+  return data.object.sha;
+}
+async function ghGetCommitTreeSha(commitSha, token){
+  const data = await ghApiRawRequest(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/commits/${commitSha}`,
+    { headers: ghAuthHeaders(token) }
+  );
+  return data.tree.sha;
+}
+async function ghCreateBlob(base64Content, token){
+  const data = await ghApiRawRequest(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/blobs`,
+    {
+      method:'POST',
+      headers: ghAuthHeaders(token, {'Content-Type':'application/json'}),
+      body: JSON.stringify({ content: base64Content, encoding: 'base64' })
+    }
+  );
+  return data.sha;
+}
+async function ghCreateTreeWithFile(baseTreeSha, repoPath, blobSha, token){
+  const data = await ghApiRawRequest(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/trees`,
+    {
+      method:'POST',
+      headers: ghAuthHeaders(token, {'Content-Type':'application/json'}),
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: [{ path: repoPath, mode:'100644', type:'blob', sha: blobSha }]
+      })
+    }
+  );
+  return data.sha;
+}
+async function ghCreateCommit(treeSha, parentSha, message, token){
+  const data = await ghApiRawRequest(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/commits`,
+    {
+      method:'POST',
+      headers: ghAuthHeaders(token, {'Content-Type':'application/json'}),
+      body: JSON.stringify({ message, tree: treeSha, parents:[parentSha] })
+    }
+  );
+  return data.sha;
+}
+async function ghUpdateRef(commitSha, token){
+  return ghApiRawRequest(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/refs/heads/${GH_BRANCH}`,
+    {
+      method:'PATCH',
+      headers: ghAuthHeaders(token, {'Content-Type':'application/json'}),
+      body: JSON.stringify({ sha: commitSha, force: false })
+    }
+  );
+}
 // একটা ফাইল (ভিডিও/PDF) আপলোড করে স্থায়ী raw URL রিটার্ন করে
 async function ghUploadFile(repoPath, file, message, token){
-  const GH_MAX_BYTES = 95 * 1024 * 1024; // GitHub Contents API-র বাস্তবিক সীমার কাছাকাছি, নিরাপদ মার্জিনসহ
+  const GH_MAX_BYTES = 95 * 1024 * 1024; // GitHub Git Data API-র বাস্তবিক সীমার কাছাকাছি, নিরাপদ মার্জিনসহ
   if(file.size > GH_MAX_BYTES){
     throw new Error('ফাইলটি অনেক বড় (GitHub-এ সরাসরি আপলোডের সীমা প্রায় ৯৫MB)।');
   }
   const base64 = await fileToBase64(file);
-  await ghPutFile(repoPath, base64, message, token, null);
+  const refSha = await ghGetRefSha(token);
+  const baseTreeSha = await ghGetCommitTreeSha(refSha, token);
+  const blobSha = await ghCreateBlob(base64, token);
+  const newTreeSha = await ghCreateTreeWithFile(baseTreeSha, repoPath, blobSha, token);
+  const newCommitSha = await ghCreateCommit(newTreeSha, refSha, message, token);
+  await ghUpdateRef(newCommitSha, token);
   return ghRawUrl(repoPath).split('?')[0];
 }
 
